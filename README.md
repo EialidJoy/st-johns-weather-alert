@@ -64,7 +64,7 @@ uvicorn main:app --reload
 5. Visit http://localhost:8000/docs
 
 ## Developer
-[Your Name] - St. John's, NL
+Eialid Ahmed Joy - St. John's, NL
 
 ## Progress
 ✅ Week 1 Complete - Backend with weather alerts working!
