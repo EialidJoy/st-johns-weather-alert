@@ -1,0 +1,16 @@
+# Render Blueprint: single web service that builds the React frontend and
+# serves it from FastAPI. Deploy via render.com -> New -> Blueprint.
+services:
+  - type: web
+    name: st-johns-weather-alert
+    runtime: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt && cd frontend && npm install && npm run build"
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: OPENWEATHER_API_KEY
+        sync: false        # set this in the Render dashboard (do not commit it)
+      - key: PYTHON_VERSION
+        value: "3.13.4"
+      - key: NODE_VERSION
+        value: "20.18.0"

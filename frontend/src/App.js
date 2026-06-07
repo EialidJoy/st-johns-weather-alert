@@ -1,74 +1,97 @@
+import { useState, useEffect, useCallback } from 'react';
 import './App.css';
-import { useState, useEffect } from 'react';
-import axios from 'axios';
+import WeatherCard from './WeatherCard';
+import AlertDisplay from './AlertDisplay';
+
+// Empty string = same-origin requests in production (FastAPI serves this build).
+// In local dev, CRA's "proxy" in package.json forwards /api to localhost:8000.
+const API_URL = process.env.REACT_APP_API_URL || '';
+const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
 function App() {
-  // State to store weather data
-  const [weather, setWeather] = useState(null);
+  const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
-  // Fetch weather when component loads
-  useEffect(() => {
-    fetchWeather();
-  }, []);
-
-  const fetchWeather = async () => {
+  const fetchDashboard = useCallback(async () => {
     try {
-      setLoading(true);
-      
-      // Call your FastAPI backend
-      const response = await axios.get('http://localhost:8000/weather');
-      
-      setWeather(response.data);
-      setLoading(false);
-      
+      setError(null);
+      const response = await fetch(`${API_URL}/api/dashboard`);
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.detail || `Request failed (${response.status})`);
+      }
+
+      const data = await response.json();
+      setDashboard(data);
+      setLastUpdated(new Date());
     } catch (err) {
       setError(err.message);
+    } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // Show loading message
+  useEffect(() => {
+    fetchDashboard();
+    const interval = setInterval(fetchDashboard, REFRESH_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [fetchDashboard]);
+
   if (loading) {
     return (
-      <div className="App">
-        <h1>St. John's Weather Alert System</h1>
-        <p className='loading'>Loading weather data...</p>
+      <div className="app">
+        <header className="app-header">
+          <h1>St. John's Weather Alert</h1>
+          <p className="subtitle">Newfoundland &amp; Labrador</p>
+        </header>
+        <p className="status-message loading">Loading weather data…</p>
       </div>
     );
   }
 
-  // Show error if API call failed
   if (error) {
     return (
-      <div className="App">
-        <h1>St. John's Weather Alert System</h1>
-        <p className='error'>Error: {error}</p>
-        <button onClick={fetchWeather}>Try Again</button>
+      <div className="app">
+        <header className="app-header">
+          <h1>St. John's Weather Alert</h1>
+          <p className="subtitle">Newfoundland &amp; Labrador</p>
+        </header>
+        <div className="error-panel">
+          <p className="status-message error">Could not load weather data</p>
+          <p className="error-detail">{error}</p>
+          <p className="error-hint">Make sure the backend is running on port 8000.</p>
+          <button type="button" onClick={fetchDashboard}>Try again</button>
+        </div>
       </div>
     );
   }
 
-  // Display weather data
   return (
-    <div className="App">
-      <h1>St. John's Weather Alert System</h1>
-      
-      {weather && (
-        <div className='weather-container'>
-          <h2>{weather.location}</h2>
-          <p><strong>Temperature:</strong> {weather.temperature}°C</p>
-          <p><strong>Feels Like:</strong> {weather.feels_like}°C</p>
-          <p><strong>Conditions:</strong> {weather.conditions}</p>
-          <p><strong>Description:</strong> {weather.description}</p>
-          <p><strong>Wind Speed:</strong> {weather.wind_speed} km/h</p>
-          <p><strong>Humidity:</strong> {weather.humidity}%</p>
-          <p><strong>Visibility:</strong> {weather.visibility}m</p>
-        </div>
-      )}
-      
-      <button onClick={fetchWeather}>Refresh Weather</button>
+    <div className="app">
+      <header className="app-header">
+        <h1>St. John's Weather Alert</h1>
+        <p className="subtitle">{dashboard.location}</p>
+        {lastUpdated && (
+          <p className="last-updated">
+            Updated {lastUpdated.toLocaleTimeString()}
+          </p>
+        )}
+      </header>
+
+      <main className="dashboard">
+        <WeatherCard weather={dashboard.weather} />
+        <AlertDisplay
+          alerts={dashboard.alerts.details}
+          summary={dashboard.alerts.summary}
+        />
+      </main>
+
+      <footer className="app-footer">
+        <button type="button" onClick={fetchDashboard}>Refresh</button>
+      </footer>
     </div>
   );
 }
